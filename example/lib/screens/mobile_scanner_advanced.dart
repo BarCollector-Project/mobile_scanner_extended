@@ -11,6 +11,7 @@ import 'package:mobile_scanner_example/widgets/buttons/switch_camera_button.dart
 import 'package:mobile_scanner_example/widgets/buttons/toggle_flashlight_button.dart';
 import 'package:mobile_scanner_example/widgets/dialogs/barcode_format_dialog.dart';
 import 'package:mobile_scanner_example/widgets/dialogs/box_fit_dialog.dart';
+import 'package:mobile_scanner_example/widgets/dialogs/camera_id_dialog.dart';
 import 'package:mobile_scanner_example/widgets/dialogs/detection_speed_dialog.dart';
 import 'package:mobile_scanner_example/widgets/dialogs/detection_timeout_dialog.dart';
 import 'package:mobile_scanner_example/widgets/dialogs/resolution_dialog.dart';
@@ -29,6 +30,7 @@ enum _PopupMenuItems {
   boxFit,
   formats,
   scanWindow,
+  cameraId,
 }
 
 /// Implementation of Mobile Scanner example with advanced configuration
@@ -59,6 +61,8 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
   BoxFit boxFit = BoxFit.contain;
   bool enableLifecycle = false;
 
+  String? cameraId;
+
   /// Hides the MobileScanner widget while the MobileScannerController is
   /// rebuilding
   bool hideMobileScannerWidget = false;
@@ -75,6 +79,7 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
     // torchEnabled: true,
     invertImage: invertImage,
     autoZoom: autoZoom,
+    cameraId: cameraId,
   );
 
   @override
@@ -161,6 +166,22 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
     }
   }
 
+  Future<void> _showCameraIdDialog() async {
+    final CameraInfo? result = await showDialog<CameraInfo>(
+      context: context,
+      builder:
+          (context) => CameraIdDialog(
+            availableCameras: controller!.getAvailableCameras(),
+          ),
+    );
+
+    if (result != null) {
+      setState(() {
+        cameraId = result.cameraId;
+      });
+    }
+  }
+
   /// This implementation fully disposes and reinitializes the
   /// MobileScannerController every time a setting is changed via the menu.
   ///
@@ -221,6 +242,8 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
                   await _showBarcodeFormatDialog();
                 case _PopupMenuItems.boxFit:
                   await _showBoxFitDialog();
+                case _PopupMenuItems.cameraId:
+                  await _showCameraIdDialog();
                 case _PopupMenuItems.returnImage:
                   returnImage = !returnImage;
                 case _PopupMenuItems.invertImage:
@@ -242,6 +265,11 @@ class _MobileScannerAdvancedState extends State<MobileScannerAdvanced> {
                     PopupMenuItem(
                       value: _PopupMenuItems.cameraResolution,
                       child: Text(_PopupMenuItems.cameraResolution.name),
+                    ),
+                  if (kIsWeb)
+                    PopupMenuItem(
+                      value: _PopupMenuItems.cameraId,
+                      child: Text(_PopupMenuItems.cameraId.name),
                     ),
                   PopupMenuItem(
                     value: _PopupMenuItems.detectionSpeed,

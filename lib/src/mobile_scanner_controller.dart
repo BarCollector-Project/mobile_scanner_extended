@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:mobile_scanner/src/enums/barcode_format.dart';
 import 'package:mobile_scanner/src/enums/camera_facing.dart';
 import 'package:mobile_scanner/src/enums/detection_speed.dart';
@@ -34,6 +35,7 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
     this.torchEnabled = false,
     this.invertImage = false,
     this.autoZoom = false,
+    this.cameraId,
   }) : detectionTimeoutMs =
            detectionSpeed == DetectionSpeed.normal ? detectionTimeoutMs : 0,
        assert(
@@ -112,6 +114,11 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
   ///
   /// Only supported on Android.
   final bool autoZoom;
+
+  final String? cameraId;
+
+  /// The stream of scanned barcodes.
+  ///
 
   /// The internal barcode controller, that listens for detected barcodes.
   final StreamController<BarcodeCapture> _barcodesController =
@@ -274,6 +281,11 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
     return MobileScannerPlatform.instance.analyzeImage(path, formats: formats);
   }
 
+  /// Get the list of available cameras.
+  Future<List<CameraInfo>> getAvailableCameras() async {
+    return MobileScannerPlatform.instance.getAvailableCameras();
+  }
+
   /// Build a camera preview widget.
   Widget buildCameraView() {
     _throwIfNotInitialized();
@@ -408,6 +420,7 @@ class MobileScannerController extends ValueNotifier<MobileScannerState> {
       torchEnabled: torchEnabled,
       invertImage: invertImage,
       autoZoom: autoZoom,
+      cameraId: cameraId,
     );
 
     try {

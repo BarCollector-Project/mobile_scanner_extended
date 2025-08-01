@@ -17,6 +17,7 @@ class StartOptions {
     required this.torchEnabled,
     required this.invertImage,
     required this.autoZoom,
+    required this.cameraId,
   });
 
   /// The direction for the camera.
@@ -51,6 +52,9 @@ class StartOptions {
   /// option.
   final bool autoZoom;
 
+  ///
+  final String? cameraId;
+
   /// Converts this object to a map.
   Map<String, Object?> toMap() {
     return <String, Object?>{
@@ -68,6 +72,7 @@ class StartOptions {
       'torch': torchEnabled,
       'invertImage': invertImage,
       'autoZoom': autoZoom,
+      'cameraId': cameraId,
     };
   }
 }

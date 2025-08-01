@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:mobile_scanner/src/enums/barcode_format.dart';
 import 'package:mobile_scanner/src/enums/torch_state.dart';
 import 'package:mobile_scanner/src/method_channel/mobile_scanner_method_channel.dart';
@@ -57,6 +58,11 @@ abstract class MobileScannerPlatform extends PlatformInterface {
     List<BarcodeFormat> formats = const <BarcodeFormat>[],
   }) {
     throw UnimplementedError('analyzeImage() has not been implemented.');
+  }
+
+  /// Get the list of available cameras.
+  Future<List<CameraInfo>> getAvailableCameras([CameraFacing? facing]) {
+    throw UnimplementedError('getAvailableCameras() has not been implemented.');
   }
 
   /// Build the camera view for the barcode scanner.

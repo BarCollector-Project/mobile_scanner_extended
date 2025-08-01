@@ -4,6 +4,7 @@ import 'dart:ui_web' as ui_web;
 
 import 'package:flutter/widgets.dart';
 import 'package:flutter_web_plugins/flutter_web_plugins.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:mobile_scanner/src/enums/barcode_format.dart';
 import 'package:mobile_scanner/src/enums/camera_facing.dart';
 import 'package:mobile_scanner/src/enums/mobile_scanner_error_code.dart';
@@ -163,7 +164,7 @@ class MobileScannerWeb extends MobileScannerPlatform {
   /// Throws a [MobileScannerException] if the permission was denied,
   /// or if using a video stream, with the given set of constraints, is
   /// unsupported.
-  Future<MediaStream> _prepareVideoStream(CameraFacing cameraDirection) async {
+  Future<MediaStream> _prepareVideoStream(StartOptions startOptions) async {
     if (window.navigator.mediaDevices.isUndefinedOrNull) {
       throw const MobileScannerException(
         errorCode: MobileScannerErrorCode.unsupported,
@@ -174,21 +175,33 @@ class MobileScannerWeb extends MobileScannerPlatform {
       );
     }
 
-    final MediaTrackSupportedConstraints capabilities =
-        window.navigator.mediaDevices.getSupportedConstraints();
-
     final MediaStreamConstraints constraints;
 
-    if (capabilities.isUndefinedOrNull || !capabilities.facingMode) {
-      constraints = MediaStreamConstraints(video: true.toJS);
-    } else {
-      final String facingMode = _settingsDelegate.getFacingMode(
-        cameraDirection,
-      );
-
+    // Checks if the ID is not null.
+    // If not, defines the use of a camera's 'ID'.
+    //
+    // If the ID is not real then [DOMException] will be thrown
+    //
+    // Otherwise, use the default method to use the camera.
+    if (startOptions.cameraId != null) {
       constraints = MediaStreamConstraints(
-        video: MediaTrackConstraintSet(facingMode: facingMode.toJS),
+        video: MediaTrackConstraintSet(deviceId: startOptions.cameraId!.toJS),
       );
+    } else {
+      final MediaTrackSupportedConstraints capabilities =
+          window.navigator.mediaDevices.getSupportedConstraints();
+
+      if (capabilities.isUndefinedOrNull || !capabilities.facingMode) {
+        constraints = MediaStreamConstraints(video: true.toJS);
+      } else {
+        final String facingMode = _settingsDelegate.getFacingMode(
+          startOptions.cameraDirection,
+        );
+
+        constraints = MediaStreamConstraints(
+          video: MediaTrackConstraintSet(facingMode: facingMode.toJS),
+        );
+      }
     }
 
     try {
@@ -296,9 +309,8 @@ class MobileScannerWeb extends MobileScannerPlatform {
     );
 
     // Request camera permissions and prepare the video stream.
-    final MediaStream videoStream = await _prepareVideoStream(
-      startOptions.cameraDirection,
-    );
+    //The [StartOptions] is passed so that 'cameraId' is preferably identified.
+    final MediaStream videoStream = await _prepareVideoStream(startOptions);
 
     try {
       // Clear the existing barcodes.
@@ -394,6 +406,86 @@ class MobileScannerWeb extends MobileScannerPlatform {
 
     await _barcodeReader?.stop();
     _barcodeReader = null;
+  }
+
+  Future<bool> _checkCameraPermission() async {
+    bool videoPermission = false;
+
+    if (_barcodeReader != null && _barcodeReader!.videoStream != null) {
+      videoPermission =
+          _barcodeReader!.videoStream!.getVideoTracks().toDart.isNotEmpty;
+    } else {
+      final MediaStreamConstraints constraints = MediaStreamConstraints(
+        video: true.toJS,
+      );
+      try {
+        await window.navigator.mediaDevices.getUserMedia(constraints).toDart;
+        videoPermission = true;
+      } on DOMException catch (error, stackTrace) {
+        throw MobileScannerException(
+          errorCode: MobileScannerErrorCode.genericError,
+          errorDetails: MobileScannerErrorDetails(
+            message: error.toString(),
+            details: stackTrace.toString(),
+          ),
+        );
+      }
+    }
+    return videoPermission;
+  }
+
+  @override
+  Future<List<CameraInfo>> getAvailableCameras([CameraFacing? facing]) async {
+    if (window.navigator.mediaDevices.isUndefinedOrNull) {
+      throw const MobileScannerException(
+        errorCode: MobileScannerErrorCode.unsupported,
+        errorDetails: MobileScannerErrorDetails(
+          message:
+              'This browser does not support displaying video from the camera.',
+        ),
+      );
+    }
+
+    if (await _checkCameraPermission()) {
+      console.log('listing cameras'.toJS);
+      final List<MediaDeviceInfo> devices =
+          (await window.navigator.mediaDevices.enumerateDevices().toDart).toDart
+              .where((d) => d.kind == 'videoinput')
+              .toList();
+
+      if (devices.isEmpty) return [];
+
+      final RegExp back = RegExp(r'\b(back|rear|environment|world)\b');
+      final RegExp front = RegExp(r'\b(front|user|face|integrated)\b');
+      final RegExp external = RegExp(r'\b(usb|external|webcam|logitech|cam)\b');
+
+      console.log('make [CameraInfo] list'.toJS);
+      final List<CameraInfo> cameras =
+          devices.map((device) {
+            final String label = device.label.toLowerCase();
+
+            final CameraFacing cameraFacing =
+                back.hasMatch(label)
+                    ? CameraFacing.back
+                    : front.hasMatch(label)
+                    ? CameraFacing.front
+                    : external.hasMatch(label)
+                    ? CameraFacing.external
+                    : CameraFacing.unknown;
+
+            return CameraInfo(
+              name: device.label,
+              cameraId: device.deviceId,
+              facing: cameraFacing,
+            );
+          }).toList();
+
+      if (facing == null) return cameras;
+
+      console.log('return filtered list'.toJS);
+      return cameras.where((c) => c.facing == facing).toList();
+    }
+    return [];
   }
 
   @override
